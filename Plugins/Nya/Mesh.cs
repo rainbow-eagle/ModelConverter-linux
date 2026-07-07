@@ -294,10 +294,20 @@
         /// <returns>Number of already existing or new texture</returns>
         private static int GetUvMappedTexture(Texture baseTexture, List<int> uv, List<Vector3D> uvCoords, ref List<Texture> uvTextures)
         {
-            // Check if texture mapped to this region exists already
+            // Check if texture mapped to this region exists already (with a tolerance to a half pixel difference)
+            double uEpsilon = 0.5 / baseTexture.Width;
+            double vEpsilon = 0.5 / baseTexture.Height;
             var createdFromBase = uvTextures.Select((texture, index) => new KeyValuePair<int, Texture>(index, texture)).Where(texture => texture.Value.GetBaseName() == baseTexture.Name).ToList();
             var existing = createdFromBase
-                .Where(texture => texture.Value.UV.Select((id, i) => (uvCoords[id] - uvCoords[uv[i]]).GetLength() <= double.Epsilon).All(val => val))
+                .Where(texture => texture.Value.UV.Select((id, i) => 
+                {
+                    Vector3D currentUv = uvCoords[id];
+                    Vector3D targetUv = uvCoords[uv[i]];
+                    bool matchHorizontal = Math.Abs(currentUv.X - targetUv.X) < uEpsilon;
+                    bool matchVertical = Math.Abs(currentUv.Y - targetUv.Y) < vEpsilon;
+
+                    return matchHorizontal && matchVertical;
+                }).All(val => val))
                 .DefaultIfEmpty(new KeyValuePair<int, Texture>(-1, baseTexture))
                 .First().Key;
 
