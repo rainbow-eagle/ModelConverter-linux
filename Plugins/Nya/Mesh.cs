@@ -278,6 +278,9 @@
             return polygon;
         }
 
+        /// <summary>
+        /// Spécifie les transformations de coordonnées UV applicables à une texture.
+        /// </summary>
         [Flags]
         public enum UvTransform
         {
@@ -287,9 +290,22 @@
             Both = HorizontalFlip | VerticalFlip
         }
 
+        /// <summary>
+        /// Represents the detailed result of a UV mapping operation.
+        /// </summary>
+        /// <remarks>
+        /// This object is returned by <see cref="GetUvMappedTexture(Texture, List{int}, List{Vector3D}, bool, double, ref List{Texture})"/>.
+        /// </remarks>
         public class TextureResult
         {
+            /// <summary>
+            /// Gets or sets the identifier of the texture (either already existing or newly created) 
+            /// within the UV texture atlas.
+            /// </summary>
             public int TextureId { get; set; }
+            /// <summary>
+            /// Gets or sets the vertex permutation array used to map vertices of a polygon to their canonical order.
+            /// </summary>
             public int[]? VertexPermutation { get; set; } = null;
         }
 
@@ -299,6 +315,8 @@
         /// <param name="baseTexture">Base texture</param>
         /// <param name="uv">UV coord indicies for quad</param>
         /// <param name="uvCoords">All UV coords</param>
+        /// <param name="wasQuad">False if the polygon was a triangle before being converted to a quad.
+        /// True if the polygon always was a Quad</param>
         /// <param name="textureMergeThreshold">Texture similarity threshold percentage (0.0 to 100.0)
         /// above which 2 textures will be considered identical</param>
         /// <param name="uvTextures">UV texture atlas</param>
@@ -332,35 +350,47 @@
             for (int i = 0; i < uvTextures.Count; i++)
             {
                 Texture existingTexture = uvTextures[i];
-                if (existingTexture.GetBaseName() != baseTexture.Name) continue;
+
+                if (existingTexture.GetBaseName() != baseTexture.Name)
+                {
+                    continue;
+                }
 
                 List<Vector3D> existingUvs = existingTexture.UV.Select(id => uvCoords[id]).ToList();
-                if (IsUvSameShape(existingUvs, currentFaceUvs, wasQuad, uEpsilon, vEpsilon, 
+                if (Mesh.IsUvSameShape(existingUvs, currentFaceUvs, wasQuad, uEpsilon, vEpsilon, 
                   out UvTransform detectedTransform, 
                   out int[]? currentToCanonicalVertexOrder) && currentToCanonicalVertexOrder is not null)
                 {
                     //The shapes are similar, now we reorder to vertices so the content of the textures can be compared
                     List<Vector3D> reorderedCurrentUvs = new List<Vector3D>(4);
+
                     for (int j = 0; j < 4; j++)
+                    {
                         reorderedCurrentUvs.Add(currentFaceUvs[currentToCanonicalVertexOrder[j]]);
+                    }
+
                     Texture currentUnwrap = Texture.GetUnwrap(baseTexture, reorderedCurrentUvs);
+
                     //And we compare the content of the textures
                     double currentScore = currentUnwrap.CalculateSimilarityTo(existingTexture);
+
                     if (currentScore >= textureMergeThreshold && currentScore > bestSimilarityScore)
                     {
                         bestSimilarityScore = currentScore;
                         bestTextureId = i;
                         bestPermutation = currentToCanonicalVertexOrder;
 
-                        if (bestSimilarityScore >= 100.0) break;
+                        if (bestSimilarityScore >= 100.0)
+                        {
+                            break;
+                        }
                     }
                 }
             }
 
             if (bestTextureId >= 0)
             {
-                return new TextureResult
-                    { TextureId = bestTextureId, VertexPermutation = bestPermutation };
+                return new TextureResult { TextureId = bestTextureId, VertexPermutation = bestPermutation };
             }
 
             // No match with existing texture, we extract a new one
@@ -378,10 +408,14 @@
         /// checking across multiple orientation configurations (default orientation, horizontal flip, vertical flip and both).
         /// <param name="existingUvs">The reference list of UV coordinates to compare against.</param>
         /// <param name="testedUvs">The list of UV coordinates being evaluated for a potential match.</param>
+        /// <param name="wasQuad">False if the polygon was a triangle before being converted to a quad.
+        /// True if the polygon always was a Quad</param>
         /// <param name="uEpsilon">The maximum allowed absolute difference along the U (X) axis.</param>
         /// <param name="vEpsilon">The maximum allowed absolute difference along the V (Y) axis.</param>
-        /// <param name="transform">When this method returns, contains the <see cref="UvTransform"/> applied to achieve the match; otherwise, <c>UvTransform.None</c>.</param>
-        /// <param name="currentToCanonicalVertexOrder">When this method returns, contains an array mapping the current vertices to their canonical sequence if a match is found; otherwise, <c>null</c>.</param>
+        /// <param name="transform">When this method returns, contains the <see cref="UvTransform"/> applied to achieve the match;
+        /// otherwise, <c>UvTransform.None</c>.</param>
+        /// <param name="currentToCanonicalVertexOrder">When this method returns, contains an array mapping the current vertices
+        /// to their canonical sequence if a match is found; otherwise, <c>null</c>.</param>
         /// <returns><c>true</c> if <paramref name="testedUvs"/> matches the shape of <paramref name="existingUvs"/> under any tested transformation; otherwise, <c>false</c>.</returns>
         private static bool IsUvSameShape(
             List<Vector3D> existingUvs,
@@ -395,7 +429,10 @@
             transform = UvTransform.None;
             currentToCanonicalVertexOrder = null;
 
-            if (existingUvs.Count != testedUvs.Count) return false;
+            if (existingUvs.Count != testedUvs.Count)
+            {
+                return false;
+            }
 
             Vector3D originExistingUvs = existingUvs[0];
             List<Vector3D> centeredExisting = existingUvs.Select(p => 
@@ -443,12 +480,19 @@
         }
 
 
+        /// <summary>
+        /// Contains the result of a polygon face canonicalization operation.
+        /// </summary>
+        /// <param name="OrderedCoords">The newly ordered and normalized list of 3D coordinates.</param>
+        /// <param name="NewToOldIndices">An array mapping each new position index back to its original index in the source list.</param>
         public record CanonicalizationResult(List<Vector3D> OrderedCoords, int[] NewToOldIndices);
 
         /// <summary>
         /// Canonicalizes a polygon face by enforcing a consistent vertex order.
         /// </summary>
         /// <param name="rawCoords">The initial list of 3D vector coordinates representing the face vertices.</param>
+        /// <param name="wasQuad">False if the polygon was a triangle before being converted to a quad.
+        /// True if the polygon always was a Quad</param>
         /// <returns>
         /// A tuple containing:
         /// <list type="bullet">
@@ -474,29 +518,32 @@
             int topLeft = 0;
             double bestDistSq = double.MaxValue;
 
-            for (int i = 0; i < vertexCount; i++)
+            for (int vertexID = 0; vertexID < vertexCount; vertexID++)
             {
-                double du = rawCoords[i].X - minU;
-                double dv = maxV - rawCoords[i].Y;
+                double du = rawCoords[vertexID].X - minU;
+                double dv = maxV - rawCoords[vertexID].Y;
                 double d = du * du + dv * dv;
 
                 if (d < bestDistSq)
                 {
                     bestDistSq = d;
-                    topLeft = i;
+                    topLeft = vertexID;
                 }
             }
 
-            // Créer l'ordre cyclique
             int[] indices = new int[4];
-            for (int i = 0; i < vertexCount; i++)
+
+            for (int vertexID = 0; vertexID < vertexCount; vertexID++)
             {
-                indices[i] = (topLeft + i) % vertexCount;
+                indices[vertexID] = (topLeft + vertexID) % vertexCount;
             }
 
             List<Vector3D> ordered = new List<Vector3D>(4);
-            for (int i = 0; i < vertexCount; i++)
-                ordered.Add(rawCoords[indices[i]]);
+
+            for (int vertexID = 0; vertexID < vertexCount; vertexID++)
+            {
+                ordered.Add(rawCoords[indices[vertexID]]);
+            }
 
             if(!wasQuad)
             {
@@ -516,7 +563,10 @@
             {
                 (indices[1], indices[3]) = (indices[3], indices[1]);
                 (ordered[1], ordered[3]) = (ordered[3], ordered[1]);
-                if(!wasQuad) {
+
+                //Update the duplicated last vertex when we are dealing with a triangle polygon
+                if(!wasQuad)
+                {
                     indices[2] = indices[3];
                     ordered[2] = ordered[3];
                 }

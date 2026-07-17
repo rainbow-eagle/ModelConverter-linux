@@ -46,7 +46,7 @@
         public bool NoUV { get; set; }
 
         /// <summary>
-        /// Gets or sets the texture similarity threshold percentage (0-100) above which 2 textures will be considered identical
+        /// Gets or sets the texture similarity threshold percentage (0.0-100.0) above which 2 textures will be considered identical
         /// as to reuse one texture in place of the other and therefore save space in memory.
         /// </summary>
         [CmdHelp("Texture similarity threshold percentage (0.0 to 100.0) above which 2 textures will be considered identical as to reuse one in place of the other and therefore save space in memory.\nDefault value is 100 (pixel perfect match).")]
