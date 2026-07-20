@@ -11,7 +11,6 @@
     /// </summary>
     public class Texture
     {
-
         /// <summary>
         /// Initializes a new instance of the <see cref="Texture"/> class
         /// </summary>
@@ -345,7 +344,6 @@
 
             return Math.Max(0, 100 * ((avgSim - (100 - maxDelta)) / maxDelta));
         }
-
 
         /// <summary>
         /// Calculate a similarity score between 0.0 and 100.0 between two gradient values.

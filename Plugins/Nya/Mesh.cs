@@ -179,7 +179,7 @@
                         TextureResult result = Mesh.GetUvMappedTexture(texture, finalUvs, group.Uv, wasQuad, textureMergeThreshold, ref uvTextures);
                         faceFlag.TextureId = result.TextureId;
 
-                        // 1. Reorder vertices depending on how the texture matched
+                        // Reorder vertices depending on how the texture matched
                         if (result.VertexPermutation != null)
                         {
                             List<int> newUvs = new List<int>(4);
@@ -199,7 +199,7 @@
                             finalVertices = newVertices;
                         }
 
-                        // Réinjection
+                        // Reinjection
                         face.Uv = finalUvs;
                         face.Normals = finalNormals;
                         face.Vertices = finalVertices;
@@ -279,14 +279,29 @@
         }
 
         /// <summary>
-        /// Spécifie les transformations de coordonnées UV applicables à une texture.
+        /// Specifies transforms that can be applied to a texture.
         /// </summary>
         [Flags]
         public enum UvTransform
         {
+            /// <summary>
+            /// Original texture, no transform applied.
+            /// </summary>
             None = 0,
+
+            /// <summary>
+            /// Texture is mirrored horizontally.
+            /// </summary>
             HorizontalFlip = 1,
+
+            /// <summary>
+            /// Texture is mirrored vertically.
+            /// </summary>
             VerticalFlip = 2,
+
+            /// <summary>
+            /// Texture is mirrored horizontally and vertically.
+            /// </summary>
             Both = HorizontalFlip | VerticalFlip
         }
 
@@ -303,6 +318,7 @@
             /// within the UV texture atlas.
             /// </summary>
             public int TextureId { get; set; }
+
             /// <summary>
             /// Gets or sets the vertex permutation array used to map vertices of a polygon to their canonical order.
             /// </summary>
@@ -478,7 +494,6 @@
 
             return false;
         }
-
 
         /// <summary>
         /// Contains the result of a polygon face canonicalization operation.
